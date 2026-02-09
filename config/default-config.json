@@ -1,0 +1,74 @@
+{
+  "version": "1.0.0",
+  "ui": {
+    "layout": "horizontal-split",
+    "appPosition": "top",
+    "controlsPosition": "bottom",
+    "controlsHeight": "300px"
+  },
+  "checkpoints": {
+    "granularity": "per-action",
+    "requireApproval": true,
+    "captureOnSuccess": true,
+    "captureOnFailure": false
+  },
+  "priorities": {
+    "levels": ["blocker", "nice-to-have"],
+    "blockerBehavior": "hard-block"
+  },
+  "preFlight": {
+    "required": true,
+    "method": "collaborative",
+    "quickModeEnabled": true,
+    "quickModeTypes": ["typo", "styling", "copy"]
+  },
+  "session": {
+    "persistence": "manual",
+    "saveWithNotes": true,
+    "showSummaryOnResume": true
+  },
+  "retest": {
+    "method": "smart-with-override",
+    "showDiffSummary": true,
+    "askDataReset": true
+  },
+  "documentation": {
+    "directUpdate": true,
+    "captureFullContext": true,
+    "generateOnApproval": [
+      "training-docs",
+      "release-notes",
+      "technical-docs",
+      "test-results",
+      "migrations",
+      "env-example",
+      "deployment-guide"
+    ]
+  },
+  "github": {
+    "autoCreateIssues": true,
+    "namingConvention": "FEAT-{issue}-{feature-name}",
+    "linkTestResults": true
+  },
+  "environments": [
+    { "name": "dev", "label": "Development (Local)" },
+    { "name": "uat", "label": "UAT (Render)" },
+    { "name": "emergency", "label": "Emergency Fix" },
+    { "name": "prod", "label": "Production" }
+  ],
+  "collaboration": {
+    "accessControl": "per-feature",
+    "handoffType": "sequential",
+    "handoffContents": "full-package"
+  },
+  "learning": {
+    "trackPatterns": true,
+    "adaptivePrompting": true,
+    "gapDiagnosis": ["compare-to-request", "decision-audit-trail"]
+  },
+  "demoMode": {
+    "enabled": true,
+    "autoAdvance": true,
+    "pauseBetweenSteps": 2000
+  }
+}

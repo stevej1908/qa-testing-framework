@@ -1,0 +1,263 @@
+{
+  "id": "prescription-update-workflow-001",
+  "featureName": "Patient Prescription Update Workflow",
+  "version": "1.0.0",
+  "createdAt": "2026-01-28T12:00:00.000Z",
+  "githubIssue": null,
+  "description": "Patient submits prescription/medication updates that are reviewed and approved by clinical staff before becoming part of the patient record.",
+
+  "preFlight": {
+    "featureRequest": "Patients need to be able to report changes to their medications (new meds, dosage changes, discontinuations) that clinical staff must review and approve before the information becomes part of the official medical record.",
+    "scope": "Patient self-service medication update with clinical staff approval workflow",
+    "users": ["Patient", "Provider", "Clinical Staff"],
+    "workflow": [
+      {
+        "role": "Patient",
+        "steps": [
+          { "action": "Navigate to patient login page", "expected": "Login form displayed" },
+          { "action": "Enter patient credentials and login", "expected": "Patient dashboard displayed" },
+          { "action": "Click on Prescriptions tab", "expected": "Prescriptions section shown" },
+          { "action": "Click 'Update Prescriptions' button", "expected": "Prescription update form displayed" },
+          { "action": "Select update type (New/Change/Discontinued/Refill)", "expected": "Form adjusts based on selection" },
+          { "action": "Enter medication details", "expected": "All fields accept input" },
+          { "action": "Click 'Submit for Review'", "expected": "Success message, request saved as pending" },
+          { "action": "Return to dashboard", "expected": "Dashboard displayed" }
+        ]
+      },
+      {
+        "role": "Clinical Staff",
+        "steps": [
+          { "action": "Login to staff portal", "expected": "Access control page displayed" },
+          { "action": "Click on Provider Portal", "expected": "Provider dashboard displayed" },
+          { "action": "Click 'Rx Update Requests' button", "expected": "Prescription requests list displayed" },
+          { "action": "View pending requests", "expected": "List shows patient-submitted requests" },
+          { "action": "Click 'Review' on a request", "expected": "Review panel expands with details" },
+          { "action": "Add review notes", "expected": "Notes field accepts input" },
+          { "action": "Click Approve or Reject", "expected": "Request status updated, list refreshed" }
+        ]
+      }
+    ],
+    "dataRequirements": {
+      "input": [
+        "Change type (new, change, discontinued, refill)",
+        "Medication name",
+        "Dosage",
+        "Frequency",
+        "Prescribing doctor",
+        "Pharmacy",
+        "Additional notes"
+      ],
+      "display": [
+        "Patient name",
+        "Request date",
+        "Medication details",
+        "Status (pending/approved/rejected)",
+        "Reviewer name",
+        "Review notes"
+      ],
+      "storage": "prescription_update_requests table"
+    },
+    "validation": [
+      "Medication name is required",
+      "Change type is required",
+      "Review notes required when rejecting"
+    ],
+    "integrations": [
+      "Patient authentication system",
+      "Staff authentication system",
+      "Database for storing requests"
+    ]
+  },
+
+  "checkpoints": [
+    {
+      "id": "cp-001",
+      "flow": "patient",
+      "index": 1,
+      "action": "Navigate to patient login page (http://localhost:3000/patient/login)",
+      "expectedResult": "Login form is displayed with email and password fields",
+      "element": "patient-login-form",
+      "status": "pending"
+    },
+    {
+      "id": "cp-002",
+      "flow": "patient",
+      "index": 2,
+      "action": "Enter patient credentials (sjenn2915@gmail.com) and click Login",
+      "expectedResult": "Patient dashboard loads with patient name and navigation tabs",
+      "element": "login-submit-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-003",
+      "flow": "patient",
+      "index": 3,
+      "action": "Click on 'Prescriptions' tab",
+      "expectedResult": "Prescriptions section displays with 'Update Prescriptions' button",
+      "element": "prescriptions-tab",
+      "status": "pending"
+    },
+    {
+      "id": "cp-004",
+      "flow": "patient",
+      "index": 4,
+      "action": "Click 'Update Prescriptions' button",
+      "expectedResult": "Prescription update form appears with all required fields",
+      "element": "update-prescriptions-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-005",
+      "flow": "patient",
+      "index": 5,
+      "action": "Select 'New Medication' from Type of Update dropdown",
+      "expectedResult": "Dropdown value changes to 'New Medication'",
+      "element": "changeType-select",
+      "status": "pending"
+    },
+    {
+      "id": "cp-006",
+      "flow": "patient",
+      "index": 6,
+      "action": "Enter medication name: 'Lisinopril'",
+      "expectedResult": "Medication name field shows 'Lisinopril'",
+      "element": "medicationName-input",
+      "status": "pending"
+    },
+    {
+      "id": "cp-007",
+      "flow": "patient",
+      "index": 7,
+      "action": "Enter dosage: '10mg' and frequency: 'Once daily'",
+      "expectedResult": "Both fields populated correctly",
+      "element": "dosage-frequency-inputs",
+      "status": "pending"
+    },
+    {
+      "id": "cp-008",
+      "flow": "patient",
+      "index": 8,
+      "action": "Enter prescribing doctor: 'Dr. Smith (Primary Care)'",
+      "expectedResult": "Prescribing doctor field populated",
+      "element": "prescribingDoctor-input",
+      "status": "pending"
+    },
+    {
+      "id": "cp-009",
+      "flow": "patient",
+      "index": 9,
+      "action": "Enter pharmacy: 'CVS Pharmacy - Main Street'",
+      "expectedResult": "Pharmacy field populated",
+      "element": "pharmacy-input",
+      "status": "pending"
+    },
+    {
+      "id": "cp-010",
+      "flow": "patient",
+      "index": 10,
+      "action": "Enter notes: 'Started for blood pressure management'",
+      "expectedResult": "Notes textarea populated",
+      "element": "notes-textarea",
+      "status": "pending"
+    },
+    {
+      "id": "cp-011",
+      "flow": "patient",
+      "index": 11,
+      "action": "Click 'Submit for Review' button",
+      "expectedResult": "Success message displayed indicating request submitted for clinical review",
+      "element": "submit-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-012",
+      "flow": "patient",
+      "index": 12,
+      "action": "Click 'Return to Dashboard' link",
+      "expectedResult": "Patient dashboard is displayed",
+      "element": "return-to-dashboard-link",
+      "status": "pending"
+    },
+    {
+      "id": "cp-013",
+      "flow": "staff",
+      "index": 13,
+      "action": "Navigate to staff login (http://localhost:3000) and login as provider",
+      "expectedResult": "Access control landing page displayed",
+      "element": "staff-login-form",
+      "status": "pending"
+    },
+    {
+      "id": "cp-014",
+      "flow": "staff",
+      "index": 14,
+      "action": "Click 'Provider Portal' button",
+      "expectedResult": "Provider dashboard displayed with patient search and action buttons",
+      "element": "provider-portal-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-015",
+      "flow": "staff",
+      "index": 15,
+      "action": "Click 'Rx Update Requests' button (orange)",
+      "expectedResult": "Prescription update requests page displayed",
+      "element": "rx-update-requests-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-016",
+      "flow": "staff",
+      "index": 16,
+      "action": "Verify pending requests list shows the patient's submission",
+      "expectedResult": "List displays patient name, medication name, and 'pending' status",
+      "element": "pending-requests-list",
+      "status": "pending"
+    },
+    {
+      "id": "cp-017",
+      "flow": "staff",
+      "index": 17,
+      "action": "Click 'Review' button on the pending request",
+      "expectedResult": "Review panel expands showing full details and review form",
+      "element": "review-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-018",
+      "flow": "staff",
+      "index": 18,
+      "action": "Enter review notes: 'Verified with patient, approved for record'",
+      "expectedResult": "Notes textarea populated",
+      "element": "review-notes-textarea",
+      "status": "pending"
+    },
+    {
+      "id": "cp-019",
+      "flow": "staff",
+      "index": 19,
+      "action": "Click 'Approve' button",
+      "expectedResult": "Confirmation dialog appears",
+      "element": "approve-button",
+      "status": "pending"
+    },
+    {
+      "id": "cp-020",
+      "flow": "staff",
+      "index": 20,
+      "action": "Confirm approval in dialog",
+      "expectedResult": "Request status changes to 'approved', list refreshes",
+      "element": "confirm-dialog",
+      "status": "pending"
+    }
+  ],
+
+  "metadata": {
+    "environment": "dev",
+    "browserRequirements": "Chrome, Firefox, or Edge",
+    "testDataRequirements": [
+      "Patient account: sjenn2915@gmail.com",
+      "Staff account: sarah.johnson@demo.com"
+    ]
+  }
+}

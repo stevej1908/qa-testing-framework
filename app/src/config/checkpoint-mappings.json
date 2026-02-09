@@ -1,0 +1,384 @@
+{
+  "version": "1.0.0",
+  "description": "Checkpoint to Playwright steps mapping. Each checkpoint ID maps to one or more automation steps.",
+
+  "mappings": {
+    "CP-001": {
+      "steps": [{ "stepId": "goto-login" }],
+      "description": "Login Page Display",
+      "selectors": ["input[type='email']", "input[type='password']", "button[type='submit']"],
+      "requires": ["src/components/auth/Login.jsx"]
+    },
+    "CP-002": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "fill-admin-credentials" },
+        { "stepId": "submit-login-admin" },
+        { "stepId": "select-admin-portal" }
+      ],
+      "description": "Valid Admin Login - split to show credentials",
+      "selectors": ["button:has-text('Administrator Portal')", "text=Admin Dashboard"],
+      "requires": ["src/components/auth/Login.jsx", "src/components/admin/AdminDashboard.jsx"]
+    },
+    "CP-003": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "fill-provider-credentials" },
+        { "stepId": "submit-login-provider" },
+        { "stepId": "select-provider-portal" }
+      ],
+      "description": "Valid Provider Login",
+      "selectors": ["button:has-text('Provider Portal')", "text=Provider Dashboard"],
+      "requires": ["src/components/auth/Login.jsx", "src/components/provider/ProviderDashboard.jsx"]
+    },
+    "CP-004": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "fill-frontdesk-credentials" },
+        { "stepId": "submit-login-frontdesk" },
+        { "stepId": "select-frontdesk-portal" }
+      ],
+      "description": "Valid Front Desk Login",
+      "selectors": ["button:has-text('Front Desk')", "text=Front Desk Dashboard"],
+      "requires": ["src/components/auth/Login.jsx", "src/components/frontdesk/FrontDeskDashboard.jsx"]
+    },
+    "CP-005": {
+      "steps": [{ "stepId": "goto-login" }],
+      "description": "Invalid Credentials - manual test",
+      "manual": true
+    },
+    "CP-006": {
+      "steps": [{ "stepId": "goto-login" }],
+      "description": "Empty Fields Validation - manual test",
+      "manual": true
+    },
+    "CP-007": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "login-admin" },
+        { "stepId": "select-admin-portal" }
+      ],
+      "description": "Session Persistence"
+    },
+    "CP-008": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "login-admin" },
+        { "stepId": "select-admin-portal" }
+      ],
+      "description": "Logout"
+    },
+    "CP-009": {
+      "steps": [{ "stepId": "goto-login" }],
+      "description": "Session Timeout - manual test",
+      "manual": true
+    },
+
+    "provider-mgmt-1": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "login-admin" },
+        { "stepId": "select-admin-portal" },
+        { "stepId": "nav-providers" }
+      ],
+      "description": "Navigate to Provider Management",
+      "selectors": ["nav button:has-text('Providers')"],
+      "requires": ["src/components/admin/ProviderManagement.jsx"]
+    },
+    "provider-mgmt-2": {
+      "steps": [{ "stepId": "click-add-provider" }],
+      "description": "Click Add Provider",
+      "selectors": ["[data-testid='add-provider-btn']"]
+    },
+    "provider-mgmt-3": {
+      "steps": [
+        { "stepId": "fill-provider-basic" },
+        { "stepId": "fill-provider-address" }
+      ],
+      "description": "Fill Provider Form",
+      "selectors": ["select[name='provider_type']", "input[name='first_name']", "input[name='last_name']"]
+    },
+    "provider-mgmt-4": {
+      "steps": [{ "stepId": "submit-provider" }],
+      "description": "Submit Provider Form",
+      "selectors": ["button[type='submit']:has-text('Save')"]
+    },
+    "provider-mgmt-npi-1": {
+      "steps": [{ "stepId": "verify-npi", "params": { "npi": "1801978747" } }],
+      "description": "Verify NPI",
+      "selectors": ["input[name='npi']", "button:has-text('Verify')"]
+    },
+    "provider-mgmt-npi-2": {
+      "steps": [{ "stepId": "autofill-from-npi" }],
+      "description": "Auto-fill from NPI",
+      "selectors": ["button:has-text('Auto-Fill')"]
+    },
+
+    "patient-mgmt-1": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "login-admin" },
+        { "stepId": "select-admin-portal" },
+        { "stepId": "nav-dashboard" }
+      ],
+      "description": "Navigate to Dashboard for Patient Management",
+      "requires": ["src/components/admin/AdminDashboard.jsx"]
+    },
+    "patient-mgmt-2": {
+      "steps": [{ "stepId": "click-add-patient" }],
+      "description": "Click Add Patient",
+      "selectors": ["[data-testid='add-patient-btn']"]
+    },
+    "patient-mgmt-3": {
+      "steps": [
+        { "stepId": "fill-patient-info" },
+        { "stepId": "fill-patient-address" }
+      ],
+      "description": "Fill Patient Form",
+      "selectors": ["input[name='firstName']", "input[name='lastName']", "input[name='dob']"]
+    },
+    "patient-mgmt-4": {
+      "steps": [{ "stepId": "submit-patient-email-link" }],
+      "description": "Submit Patient with Email Link",
+      "selectors": ["button:has-text('Save & Email Registration Link')"]
+    },
+
+    "appointments-1": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "login-frontdesk" },
+        { "stepId": "select-frontdesk-portal" }
+      ],
+      "description": "Login as Front Desk for Appointments",
+      "requires": ["src/components/frontdesk/FrontDeskDashboard.jsx"]
+    },
+    "appointments-2": {
+      "steps": [{ "stepId": "click-new-appointment" }],
+      "description": "Click New Appointment",
+      "selectors": ["button:has-text('New Appointment')"]
+    },
+    "appointments-3": {
+      "steps": [{ "stepId": "fill-appointment" }],
+      "description": "Fill Appointment Form",
+      "selectors": ["select[name='patient_id']", "select[name='provider_id']", "input[name='appointment_date']"]
+    },
+    "appointments-4": {
+      "steps": [{ "stepId": "submit-appointment" }],
+      "description": "Submit Appointment",
+      "selectors": ["button:has-text('Create Appointment')"]
+    },
+
+    "front-desk-1": {
+      "steps": [
+        { "stepId": "goto-login" },
+        { "stepId": "login-frontdesk" },
+        { "stepId": "select-frontdesk-portal" }
+      ],
+      "description": "Login as Front Desk",
+      "requires": ["src/components/frontdesk/FrontDeskDashboard.jsx"]
+    },
+    "front-desk-2": {
+      "steps": [{ "stepId": "view-schedule-tab" }],
+      "description": "View Schedule Tab",
+      "selectors": ["button:has-text('Today\\'s Schedule')", "h2:has-text('Schedule for')"]
+    },
+    "front-desk-3": {
+      "steps": [{ "stepId": "view-waiting-room-tab" }],
+      "description": "View Waiting Room Tab",
+      "selectors": ["button:has-text('Waiting Room')", "h2:has-text('Waiting Room')"]
+    },
+    "front-desk-4": {
+      "steps": [{ "stepId": "view-intake-queue-tab" }],
+      "description": "View Intake Queue Tab",
+      "selectors": ["button:has-text('Intake Queue')", "h2:has-text('Patient Intake Queue')"]
+    },
+    "front-desk-5": {
+      "steps": [{ "stepId": "check-in-patient" }],
+      "description": "Check In Patient",
+      "selectors": ["button:has-text('Check In')", "[data-testid='check-in-btn']"],
+      "manual": true
+    },
+    "front-desk-6": {
+      "steps": [{ "stepId": "mark-patient-ready" }],
+      "description": "Mark Patient Ready",
+      "selectors": ["button:has-text('Ready')", "[data-testid='ready-btn']"],
+      "manual": true
+    },
+    "front-desk-7": {
+      "steps": [{ "stepId": "process-intake" }],
+      "description": "Process Intake",
+      "selectors": ["button:has-text('Process')", "button:has-text('View Intake')"],
+      "manual": true
+    },
+    "front-desk-8": {
+      "steps": [{ "stepId": "verify-summary-cards" }],
+      "description": "Verify Summary Cards",
+      "selectors": ["[data-testid='summary-card']", ".summary-cards"],
+      "manual": true
+    },
+    "front-desk-9": {
+      "steps": [{ "stepId": "filter-by-status" }],
+      "description": "Filter by Status",
+      "selectors": ["select[name='status-filter']", "[data-testid='status-filter']"],
+      "manual": true
+    },
+    "front-desk-10": {
+      "steps": [{ "stepId": "add-walk-in" }],
+      "description": "Add Walk-In Patient",
+      "selectors": ["button:has-text('Add Patient')", "button:has-text('Walk-In')"],
+      "manual": true
+    },
+
+    "patient-portal-1": {
+      "steps": [{ "stepId": "goto-patient-register" }],
+      "description": "Navigate to Patient Registration",
+      "selectors": ["h2:has-text('Patient Registration')"]
+    },
+    "patient-portal-2": {
+      "steps": [{ "stepId": "fill-patient-registration" }],
+      "description": "Fill Patient Registration Form",
+      "selectors": ["input[name='first_name']", "input[name='last_name']", "input[name='email']"]
+    },
+    "patient-portal-3": {
+      "steps": [{ "stepId": "submit-patient-registration" }],
+      "description": "Submit Patient Registration",
+      "selectors": ["button[type='submit']", "h2:has-text('Registration Successful!')"]
+    },
+
+    "screenshot": {
+      "steps": [{ "stepId": "screenshot" }],
+      "description": "Capture Screenshot"
+    },
+    "close": {
+      "steps": [{ "stepId": "close-browser" }],
+      "description": "Close Browser"
+    }
+  },
+
+  "stepDefinitions": {
+    "goto-login": {
+      "description": "Navigate to login page",
+      "type": "navigation"
+    },
+    "login-admin": {
+      "description": "Login as admin user",
+      "type": "authentication",
+      "requiresCredentials": "admin"
+    },
+    "login-frontdesk": {
+      "description": "Login as front desk user",
+      "type": "authentication",
+      "requiresCredentials": "frontDesk"
+    },
+    "login-provider": {
+      "description": "Login as provider user",
+      "type": "authentication",
+      "requiresCredentials": "provider"
+    },
+    "select-admin-portal": {
+      "description": "Select Administrator Portal",
+      "type": "navigation"
+    },
+    "select-frontdesk-portal": {
+      "description": "Select Front Desk Portal",
+      "type": "navigation"
+    },
+    "select-provider-portal": {
+      "description": "Select Provider Portal",
+      "type": "navigation"
+    },
+    "nav-providers": {
+      "description": "Navigate to Providers section",
+      "type": "navigation"
+    },
+    "nav-dashboard": {
+      "description": "Navigate to Dashboard",
+      "type": "navigation"
+    },
+    "click-add-provider": {
+      "description": "Click Add Provider button",
+      "type": "action"
+    },
+    "fill-provider-basic": {
+      "description": "Fill provider basic information",
+      "type": "form-fill"
+    },
+    "fill-provider-address": {
+      "description": "Fill provider address",
+      "type": "form-fill"
+    },
+    "submit-provider": {
+      "description": "Submit provider form",
+      "type": "form-submit"
+    },
+    "verify-npi": {
+      "description": "Verify NPI number",
+      "type": "verification",
+      "params": ["npi"]
+    },
+    "autofill-from-npi": {
+      "description": "Auto-fill from NPI data",
+      "type": "action"
+    },
+    "click-add-patient": {
+      "description": "Click Add Patient button",
+      "type": "action"
+    },
+    "fill-patient-info": {
+      "description": "Fill patient information",
+      "type": "form-fill"
+    },
+    "fill-patient-address": {
+      "description": "Fill patient address",
+      "type": "form-fill"
+    },
+    "submit-patient-email-link": {
+      "description": "Submit patient with email link",
+      "type": "form-submit"
+    },
+    "click-new-appointment": {
+      "description": "Click New Appointment button",
+      "type": "action"
+    },
+    "fill-appointment": {
+      "description": "Fill appointment details",
+      "type": "form-fill"
+    },
+    "submit-appointment": {
+      "description": "Submit appointment form",
+      "type": "form-submit"
+    },
+    "view-schedule-tab": {
+      "description": "View schedule tab",
+      "type": "navigation"
+    },
+    "view-waiting-room-tab": {
+      "description": "View waiting room tab",
+      "type": "navigation"
+    },
+    "view-intake-queue-tab": {
+      "description": "View intake queue tab",
+      "type": "navigation"
+    },
+    "goto-patient-register": {
+      "description": "Navigate to patient registration",
+      "type": "navigation"
+    },
+    "fill-patient-registration": {
+      "description": "Fill patient registration form",
+      "type": "form-fill"
+    },
+    "submit-patient-registration": {
+      "description": "Submit patient registration",
+      "type": "form-submit"
+    },
+    "screenshot": {
+      "description": "Capture screenshot",
+      "type": "utility"
+    },
+    "close-browser": {
+      "description": "Close browser",
+      "type": "utility"
+    }
+  }
+}

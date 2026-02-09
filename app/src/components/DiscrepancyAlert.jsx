@@ -1,0 +1,898 @@
+/**
+ * DiscrepancyAlert - Modal shown when pre-test validation finds issues
+ *
+ * Displays validation results with options to:
+ * - Fix issues and retry
+ * - Continue anyway (for warnings)
+ * - Cancel testing
+ */
+
+import React, { useState } from 'react';
+import ComplianceReport from './ComplianceReport';
+
+const DiscrepancyAlert = ({
+  validationResults,
+  onContinue,
+  onCancel,
+  onRetry,
+  onViewCompliance,
+  onLogAndContinue,
+  onSelectDifferentFeature,
+  githubConnected = false
+}) => {
+  const [showComplianceReport, setShowComplianceReport] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    errors: true,
+    warnings: false,
+    details: false
+  });
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [isLoggingToGitHub, setIsLoggingToGitHub] = useState(false);
+  const [showClaudePrompt, setShowClaudePrompt] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
+
+  if (!validationResults) {
+    return null;
+  }
+
+  const { passed, canProceed, errors, warnings, details } = validationResults;
+  const complianceReport = details?.compliance?.report;
+  const hasWorkaround = complianceReport?.workaround?.available;
+  const requiresAcknowledgment = complianceReport?.requiresAcknowledgment;
+
+  const handleLogAndContinue = async () => {
+    if (onLogAndContinue) {
+      setIsLoggingToGitHub(true);
+      try {
+        await onLogAndContinue(complianceReport);
+      } finally {
+        setIsLoggingToGitHub(false);
+      }
+    }
+  };
+
+  // Generate a detailed prompt for Claude to fix the issues
+  const generateClaudePrompt = () => {
+    const findings = Array.isArray(complianceReport?.findings) ? complianceReport.findings : [];
+    const roleMatrix = complianceReport?.roleMatrix || {};
+
+    let prompt = `# Fix Compliance Issues in Testing Framework
+
+## Context
+The pre-test validation detected compliance issues that need to be fixed before production deployment.
+
+## Target Application
+- **URL:** ${validationResults.targetUrl || 'N/A'}
+- **Spec:** ${validationResults.specId || 'N/A'}
+
+## Compliance Findings
+`;
+
+    findings.forEach((finding, i) => {
+      if (!finding) return;
+      prompt += `
+### ${i + 1}. ${finding.name || 'Unknown'} (${(finding.severity || 'unknown').toUpperCase()})
+- **Type:** ${finding.type || 'N/A'}
+- **Description:** ${finding.description || 'N/A'}
+- **Affected Roles:** ${Array.isArray(finding.affectedRoles) ? finding.affectedRoles.join(', ') : 'N/A'}
+- **Standards:** ${Array.isArray(finding.standards) ? finding.standards.join(', ') : 'N/A'}
+- **Recommendation:** ${finding.recommendation || 'N/A'}
+`;
+    });
+
+    prompt += `
+## Current Role-Domain Matrix
+| Role | Patient Records | Financial Data | Admin Functions | Clinical Data | Scheduling |
+|------|-----------------|----------------|-----------------|---------------|------------|
+`;
+
+    Object.entries(roleMatrix || {}).forEach(([role, domains]) => {
+      if (!domains) return;
+      prompt += `| ${role} | ${domains.patient_records ? 'YES' : '-'} | ${domains.financial_data ? 'YES' : '-'} | ${domains.admin_functions ? 'YES' : '-'} | ${domains.clinical_data ? 'YES' : '-'} | ${domains.scheduling ? 'YES' : '-'} |\n`;
+    });
+
+    prompt += `
+## Required Changes
+1. **Implement Role Separation:** Create distinct roles for clinical (PHI) and billing (financial) access
+2. **Update Database Schema:** Add new role columns or role-based access tables
+3. **Modify Route Authorization:** Update server routes to check for specific domain access
+4. **Update Test Credentials:** Create new test users with separated roles
+
+## Files Likely Needing Changes
+- \`server/routes/*.js\` - Add role-based middleware
+- \`server/migrations/\` - Create migration for role separation
+- \`src/context/AuthContext.jsx\` - Update role handling
+- \`testing-framework/config/test-credentials.json\` - Add new role-specific test users
+
+## Instructions
+Please analyze the codebase and implement the role separation required for HIPAA/SOX compliance. After making changes, I'll rerun the validation to verify the fixes.
+`;
+
+    return prompt;
+  };
+
+  const handleCopyPrompt = async () => {
+    const prompt = generateClaudePrompt();
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const getStatusIcon = () => {
+    if (!canProceed) return 'HALT';
+    if (!passed) return 'ISSUES';
+    return 'READY';
+  };
+
+  const getStatusStyle = () => {
+    if (!canProceed) return styles.statusHalt;
+    if (!passed) return styles.statusWarning;
+    return styles.statusOk;
+  };
+
+  const renderErrorItem = (error, index) => (
+    <div key={index} style={styles.errorItem}>
+      <span style={styles.errorIcon}>!</span>
+      <div style={styles.errorContent}>
+        <span style={styles.errorType}>{error.type}</span>
+        <span style={styles.errorMessage}>{error.message}</span>
+      </div>
+    </div>
+  );
+
+  const renderWarningItem = (warning, index) => (
+    <div key={index} style={styles.warningItem}>
+      <span style={styles.warningIcon}>!</span>
+      <div style={styles.warningContent}>
+        <span style={styles.warningType}>{warning.type}</span>
+        <span style={styles.warningMessage}>{warning.message}</span>
+      </div>
+    </div>
+  );
+
+  const renderDetailSection = (title, detail) => {
+    if (!detail) return null;
+
+    return (
+      <div style={styles.detailItem}>
+        <div style={styles.detailHeader}>
+          <span style={styles.detailTitle}>{title}</span>
+          <span style={{
+            ...styles.detailStatus,
+            color: detail.valid !== false ? '#16a34a' : '#dc2626'
+          }}>
+            {detail.valid !== false ? 'OK' : 'Failed'}
+          </span>
+        </div>
+        {detail.message && (
+          <p style={styles.detailMessage}>{detail.message}</p>
+        )}
+      </div>
+    );
+  };
+
+  // Show compliance report if requested
+  if (showComplianceReport && details?.compliance?.report) {
+    return (
+      <div style={styles.overlay}>
+        <div style={styles.complianceModal}>
+          <button
+            onClick={() => setShowComplianceReport(false)}
+            style={styles.backButton}
+          >
+            Back to Validation Results
+          </button>
+          <ComplianceReport
+            report={details.compliance.report}
+            onDismiss={() => setShowComplianceReport(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.overlay}>
+      <div style={styles.modal}>
+        {/* Header */}
+        <div style={{ ...styles.header, ...getStatusStyle() }}>
+          <div style={styles.statusBadge}>
+            {getStatusIcon()}
+          </div>
+          <div style={styles.headerText}>
+            <h2 style={styles.title}>
+              {!canProceed
+                ? 'Cannot Proceed - Critical Issues Found'
+                : !passed
+                  ? 'Validation Issues Found'
+                  : 'Validation Complete'}
+            </h2>
+            <p style={styles.subtitle}>
+              {!canProceed
+                ? 'Testing is blocked until these issues are resolved'
+                : errors.length > 0
+                  ? `${errors.length} error(s), ${warnings.length} warning(s)`
+                  : `${warnings.length} warning(s) found`}
+            </p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={styles.content}>
+          {/* Errors Section */}
+          {errors.length > 0 && (
+            <div style={styles.section}>
+              <button
+                onClick={() => toggleSection('errors')}
+                style={styles.sectionHeader}
+              >
+                <span style={styles.sectionTitle}>
+                  <span style={styles.errorBadge}>{errors.length}</span>
+                  Errors
+                </span>
+                <span>{expandedSections.errors ? 'Hide' : 'Show'}</span>
+              </button>
+              {expandedSections.errors && (
+                <div style={styles.sectionContent}>
+                  {errors.map(renderErrorItem)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Warnings Section */}
+          {warnings.length > 0 && (
+            <div style={styles.section}>
+              <button
+                onClick={() => toggleSection('warnings')}
+                style={styles.sectionHeader}
+              >
+                <span style={styles.sectionTitle}>
+                  <span style={styles.warningBadge}>{warnings.length}</span>
+                  Warnings
+                </span>
+                <span>{expandedSections.warnings ? 'Hide' : 'Show'}</span>
+              </button>
+              {expandedSections.warnings && (
+                <div style={styles.sectionContent}>
+                  {warnings.map(renderWarningItem)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Details Section */}
+          <div style={styles.section}>
+            <button
+              onClick={() => toggleSection('details')}
+              style={styles.sectionHeader}
+            >
+              <span style={styles.sectionTitle}>Validation Details</span>
+              <span>{expandedSections.details ? 'Hide' : 'Show'}</span>
+            </button>
+            {expandedSections.details && (
+              <div style={styles.sectionContent}>
+                {renderDetailSection('Deployment', details.deploymentMatch)}
+                {renderDetailSection('Credentials', details.credentialMatch)}
+                {renderDetailSection('Codebase Sync', details.codebaseSync)}
+                {renderDetailSection('Spec Validation', details.specValidity)}
+                {renderDetailSection('Compliance', details.compliance)}
+
+                {details.compliance?.report && (
+                  <button
+                    onClick={() => setShowComplianceReport(true)}
+                    style={styles.viewComplianceButton}
+                  >
+                    View Full Compliance Report
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Options Section - shown when compliance has issues */}
+          {hasWorkaround && (
+            <div style={styles.optionsSection}>
+            {/* Compliance Warning */}
+            {complianceReport.complianceWarning && (
+              <p style={styles.complianceWarning}>
+                {complianceReport.complianceWarning}
+              </p>
+            )}
+
+            {/* Option 1: Test Different Feature (Recommended) */}
+            <div style={styles.optionCard}>
+              <div style={styles.optionHeader}>
+                <span style={styles.optionNumber}>1</span>
+                <span style={styles.optionTitle}>Test a Different Feature</span>
+                <span style={styles.recommendedBadge}>Recommended</span>
+              </div>
+              <p style={styles.optionDescription}>
+                Select another feature to test while this compliance issue is being resolved.
+                You can return to this feature after the security model is fixed.
+              </p>
+              <button
+                onClick={onSelectDifferentFeature}
+                style={styles.selectFeatureButton}
+              >
+                Choose Different Feature
+              </button>
+            </div>
+
+            {/* Option 2: Use Workaround Credentials */}
+            <div style={styles.optionCard}>
+              <div style={styles.optionHeader}>
+                <span style={styles.optionNumber}>2</span>
+                <span style={styles.optionTitle}>Continue with Workaround</span>
+              </div>
+              <p style={styles.optionDescription}>
+                {complianceReport.workaround.description}
+              </p>
+              {requiresAcknowledgment && (
+                <label style={styles.acknowledgmentLabel}>
+                  <input
+                    type="checkbox"
+                    checked={acknowledged}
+                    onChange={(e) => setAcknowledged(e.target.checked)}
+                    style={styles.acknowledgmentCheckbox}
+                  />
+                  <span>
+                    I acknowledge this compliance issue must be resolved before production.
+                    {complianceReport.workaround.mustLogToGitHub && githubConnected &&
+                      ' A GitHub issue will be created to track this.'}
+                  </span>
+                </label>
+              )}
+            </div>
+
+            {/* Option 3: Fix with Claude */}
+            <div style={styles.optionCard}>
+              <div style={styles.optionHeader}>
+                <span style={styles.optionNumber}>3</span>
+                <span style={styles.optionTitle}>Fix the Issue Now</span>
+              </div>
+              <p style={styles.optionDescription}>
+                Get AI assistance to implement proper role separation and fix compliance issues.
+              </p>
+              <button
+                onClick={() => setShowClaudePrompt(!showClaudePrompt)}
+                style={styles.claudeButton}
+              >
+                {showClaudePrompt ? 'Hide Claude Prompt' : 'Fix with Claude'}
+              </button>
+
+              {showClaudePrompt && (
+                <div style={styles.promptSection}>
+                  <div style={styles.promptHeader}>
+                    <span>Copy this prompt to Claude Code:</span>
+                    <button onClick={handleCopyPrompt} style={styles.copyButton}>
+                      {promptCopied ? 'Copied!' : 'Copy Prompt'}
+                    </button>
+                  </div>
+                  <pre style={styles.promptText}>
+                    {generateClaudePrompt()}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={styles.actions}>
+          <button onClick={onCancel} style={styles.cancelButton}>
+            Cancel
+          </button>
+          {onRetry && (
+            <button onClick={onRetry} style={styles.retryButton}>
+              Retry
+            </button>
+          )}
+          {hasWorkaround && githubConnected && complianceReport.workaround.mustLogToGitHub ? (
+            <button
+              onClick={handleLogAndContinue}
+              style={{
+                ...styles.continueButton,
+                backgroundColor: acknowledged ? '#1e40af' : '#9ca3af',
+                cursor: acknowledged ? 'pointer' : 'not-allowed'
+              }}
+              disabled={!acknowledged || isLoggingToGitHub}
+            >
+              {isLoggingToGitHub ? 'Logging to GitHub...' : 'Log Issue & Continue'}
+            </button>
+          ) : hasWorkaround && requiresAcknowledgment ? (
+            <button
+              onClick={onContinue}
+              style={{
+                ...styles.continueButton,
+                backgroundColor: acknowledged ? '#1e40af' : '#9ca3af',
+                cursor: acknowledged ? 'pointer' : 'not-allowed'
+              }}
+              disabled={!acknowledged}
+            >
+              Continue with Workaround
+            </button>
+          ) : (
+            <button onClick={onContinue} style={styles.continueButton}>
+              {warnings.length > 0 ? 'Continue Anyway' : 'Start Testing'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const styles = {
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000
+  },
+  modal: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    width: '90%',
+    maxWidth: '600px',
+    maxHeight: '80vh',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+  },
+  complianceModal: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    width: '95%',
+    maxWidth: '900px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    padding: '16px'
+  },
+  backButton: {
+    marginBottom: '16px',
+    padding: '8px 16px',
+    backgroundColor: 'transparent',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: '#374151'
+  },
+  header: {
+    padding: '20px 24px',
+    borderRadius: '12px 12px 0 0',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px'
+  },
+  statusHalt: {
+    backgroundColor: '#fef2f2',
+    borderBottom: '3px solid #dc2626'
+  },
+  statusWarning: {
+    backgroundColor: '#fffbeb',
+    borderBottom: '3px solid #f59e0b'
+  },
+  statusOk: {
+    backgroundColor: '#f0fdf4',
+    borderBottom: '3px solid #16a34a'
+  },
+  statusBadge: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    backgroundColor: '#1f2937',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+    fontSize: '10px'
+  },
+  headerText: {
+    flex: 1
+  },
+  title: {
+    margin: 0,
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#1f2937'
+  },
+  subtitle: {
+    margin: '4px 0 0 0',
+    fontSize: '14px',
+    color: '#6b7280'
+  },
+  content: {
+    flex: 1,
+    overflow: 'auto',
+    padding: '16px 24px'
+  },
+  section: {
+    marginBottom: '12px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    overflow: 'hidden'
+  },
+  sectionHeader: {
+    width: '100%',
+    padding: '12px 16px',
+    backgroundColor: '#f9fafb',
+    border: 'none',
+    borderBottom: '1px solid #e5e7eb',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#374151'
+  },
+  sectionTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  errorBadge: {
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+  warningBadge: {
+    backgroundColor: '#f59e0b',
+    color: '#fff',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+  sectionContent: {
+    padding: '12px 16px'
+  },
+  errorItem: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    padding: '10px',
+    backgroundColor: '#fef2f2',
+    borderRadius: '6px',
+    marginBottom: '8px'
+  },
+  errorIcon: {
+    width: '20px',
+    height: '20px',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+    fontSize: '12px',
+    flexShrink: 0
+  },
+  errorContent: {
+    flex: 1
+  },
+  errorType: {
+    display: 'block',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#dc2626',
+    marginBottom: '2px'
+  },
+  errorMessage: {
+    fontSize: '13px',
+    color: '#7f1d1d'
+  },
+  warningItem: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    padding: '10px',
+    backgroundColor: '#fffbeb',
+    borderRadius: '6px',
+    marginBottom: '8px'
+  },
+  warningIcon: {
+    width: '20px',
+    height: '20px',
+    backgroundColor: '#f59e0b',
+    color: '#fff',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+    fontSize: '12px',
+    flexShrink: 0
+  },
+  warningContent: {
+    flex: 1
+  },
+  warningType: {
+    display: 'block',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#b45309',
+    marginBottom: '2px'
+  },
+  warningMessage: {
+    fontSize: '13px',
+    color: '#78350f'
+  },
+  detailItem: {
+    padding: '10px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '6px',
+    marginBottom: '8px'
+  },
+  detailHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '4px'
+  },
+  detailTitle: {
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#374151'
+  },
+  detailStatus: {
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+  detailMessage: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#6b7280'
+  },
+  viewComplianceButton: {
+    width: '100%',
+    marginTop: '8px',
+    padding: '10px 16px',
+    backgroundColor: '#1e40af',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  actions: {
+    padding: '16px 24px',
+    borderTop: '1px solid #e5e7eb',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '12px'
+  },
+  cancelButton: {
+    padding: '10px 20px',
+    backgroundColor: 'transparent',
+    color: '#6b7280',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  retryButton: {
+    padding: '10px 20px',
+    backgroundColor: '#f3f4f6',
+    color: '#374151',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  continueButton: {
+    padding: '10px 24px',
+    backgroundColor: '#1e40af',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  optionsSection: {
+    marginTop: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
+  },
+  optionCard: {
+    padding: '16px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb'
+  },
+  optionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '8px'
+  },
+  optionNumber: {
+    width: '24px',
+    height: '24px',
+    backgroundColor: '#1e40af',
+    color: '#fff',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+  optionTitle: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1f2937'
+  },
+  recommendedBadge: {
+    backgroundColor: '#16a34a',
+    color: '#fff',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    fontSize: '10px',
+    fontWeight: '600'
+  },
+  optionDescription: {
+    margin: '0 0 12px 0',
+    fontSize: '13px',
+    color: '#4b5563',
+    lineHeight: '1.5',
+    paddingLeft: '34px'
+  },
+  selectFeatureButton: {
+    marginLeft: '34px',
+    padding: '10px 20px',
+    backgroundColor: '#16a34a',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  workaroundSection: {
+    margin: '0 24px 16px 24px',
+    padding: '16px',
+    backgroundColor: '#eff6ff',
+    borderRadius: '8px',
+    border: '1px solid #bfdbfe'
+  },
+  workaroundHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '8px'
+  },
+  workaroundIcon: {
+    width: '20px',
+    height: '20px',
+    backgroundColor: '#3b82f6',
+    color: '#fff',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+    fontSize: '12px'
+  },
+  workaroundTitle: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1e40af'
+  },
+  workaroundDescription: {
+    margin: '0 0 12px 0',
+    fontSize: '13px',
+    color: '#1e3a8a',
+    lineHeight: '1.5'
+  },
+  complianceWarning: {
+    margin: '0 0 12px 0',
+    padding: '10px',
+    backgroundColor: '#fef3c7',
+    borderRadius: '6px',
+    fontSize: '13px',
+    color: '#92400e',
+    fontWeight: '500'
+  },
+  acknowledgmentLabel: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    fontSize: '13px',
+    color: '#374151',
+    cursor: 'pointer'
+  },
+  acknowledgmentCheckbox: {
+    marginTop: '2px',
+    cursor: 'pointer'
+  },
+  claudeSection: {
+    marginTop: '16px',
+    paddingTop: '16px',
+    borderTop: '1px solid #bfdbfe',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  claudeButton: {
+    padding: '8px 16px',
+    backgroundColor: '#7c3aed',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '500',
+    cursor: 'pointer'
+  },
+  claudeHint: {
+    fontSize: '12px',
+    color: '#6b7280'
+  },
+  promptSection: {
+    marginTop: '12px',
+    backgroundColor: '#1f2937',
+    borderRadius: '8px',
+    overflow: 'hidden'
+  },
+  promptHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 14px',
+    backgroundColor: '#374151',
+    color: '#e5e7eb',
+    fontSize: '12px'
+  },
+  copyButton: {
+    padding: '4px 12px',
+    backgroundColor: '#4b5563',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '11px',
+    cursor: 'pointer'
+  },
+  promptText: {
+    margin: 0,
+    padding: '14px',
+    color: '#e5e7eb',
+    fontSize: '11px',
+    lineHeight: '1.5',
+    maxHeight: '200px',
+    overflow: 'auto',
+    whiteSpace: 'pre-wrap',
+    fontFamily: 'monospace'
+  }
+};
+
+export default DiscrepancyAlert;

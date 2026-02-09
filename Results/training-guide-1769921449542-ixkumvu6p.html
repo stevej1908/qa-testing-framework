@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication Training Guide</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      color: #1f2937;
+      background: #f9fafb;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .header h1 {
+      color: #1e40af;
+      margin: 0 0 10px 0;
+      font-size: 28px;
+    }
+    .header .meta {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .summary {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+    .summary-item {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .summary-item .number {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1e40af;
+    }
+    .summary-item .label {
+      font-size: 12px;
+      color: #6b7280;
+      text-transform: uppercase;
+    }
+    .section {
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .section-header {
+      background: #1e40af;
+      color: white;
+      padding: 15px 20px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .checkpoint {
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .checkpoint:last-child {
+      border-bottom: none;
+    }
+    .checkpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+    .checkpoint-id {
+      background: #e5e7eb;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .checkpoint-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .checkpoint-description {
+      color: #4b5563;
+      margin-bottom: 15px;
+    }
+    .steps {
+      background: #f9fafb;
+      padding: 15px 20px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+    .steps h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #374151;
+    }
+    .steps ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .steps li {
+      margin-bottom: 8px;
+      color: #4b5563;
+    }
+    .expected {
+      background: #dcfce7;
+      padding: 12px 16px;
+      border-radius: 6px;
+      border-left: 4px solid #16a34a;
+    }
+    .expected h4 {
+      margin: 0 0 5px 0;
+      font-size: 12px;
+      color: #166534;
+      text-transform: uppercase;
+    }
+    .expected p {
+      margin: 0;
+      color: #166534;
+    }
+    .screenshot {
+      margin-top: 15px;
+      text-align: center;
+    }
+    .screenshot img {
+      max-width: 100%;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .screenshot-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+    @media print {
+      body { background: white; }
+      .section { box-shadow: none; border: 1px solid #e5e7eb; }
+      .summary-item { box-shadow: none; border: 1px solid #e5e7eb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Authentication Training Guide</h1>
+    <div class="meta">
+      Generated on 1/31/2026
+      | Authentication
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="summary-item">
+      <div class="number">9</div>
+      <div class="label">Total Steps</div>
+    </div>
+    <div class="summary-item">
+      <div class="number">9</div>
+      <div class="label">Verified</div>
+    </div>
+    <div class="summary-item">
+      <div class="number">100%</div>
+      <div class="label">Pass Rate</div>
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <div class="section-header">Section 1</div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-001</span>
+        <span class="checkpoint-title">Login Page Display</span>
+      </div>
+      <div class="checkpoint-description">Login page renders correctly with all required elements</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Navigate to application root (/)</li><li>Verify login form is visible</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>Email input field visible; Password input field visible; Submit button visible; Forgot password link visible (optional)</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-002</span>
+        <span class="checkpoint-title">Valid Admin Login</span>
+      </div>
+      <div class="checkpoint-description">Admin user can login with valid credentials</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Enter valid admin email</li><li>Enter valid admin password</li><li>Click submit button</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>User is redirected to admin dashboard; Auth token is stored in localStorage; User context is populated</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-003</span>
+        <span class="checkpoint-title">Valid Provider Login</span>
+      </div>
+      <div class="checkpoint-description">Provider user can login and access provider dashboard</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Enter valid provider email</li><li>Enter valid provider password</li><li>Click submit button</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>User is redirected to provider dashboard; Provider-specific features are accessible</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-004</span>
+        <span class="checkpoint-title">Valid Front Desk Login</span>
+      </div>
+      <div class="checkpoint-description">Front desk user can login and access front desk dashboard</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Enter valid front desk email</li><li>Enter valid front desk password</li><li>Click submit button</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>User is redirected to front desk dashboard; Front desk features are accessible</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-005</span>
+        <span class="checkpoint-title">Invalid Credentials</span>
+      </div>
+      <div class="checkpoint-description">Login fails with invalid credentials</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Enter invalid email or password</li><li>Click submit button</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>Error message is displayed; User remains on login page; No auth token is stored</p>
+      </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  <div class="section">
+    <div class="section-header">Section 2</div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-006</span>
+        <span class="checkpoint-title">Empty Fields Validation</span>
+      </div>
+      <div class="checkpoint-description">Login form validates required fields</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Leave email and/or password empty</li><li>Click submit button</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>Form validation prevents submission; Validation error message shown</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-007</span>
+        <span class="checkpoint-title">Session Persistence</span>
+      </div>
+      <div class="checkpoint-description">User session persists across page refreshes</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Login successfully</li><li>Refresh the page</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>User remains logged in; Dashboard is displayed; Auth token is still valid</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-008</span>
+        <span class="checkpoint-title">Logout</span>
+      </div>
+      <div class="checkpoint-description">User can logout and session is cleared</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Login successfully</li><li>Click logout button</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>User is redirected to login page; Auth token is removed; User context is cleared</p>
+      </div>
+      
+      
+    </div>
+    
+    <div class="checkpoint">
+      <div class="checkpoint-header">
+        <span class="checkpoint-id">CP-009</span>
+        <span class="checkpoint-title">Session Timeout</span>
+      </div>
+      <div class="checkpoint-description">Expired sessions are handled gracefully</div>
+      
+      <div class="steps">
+        <h4>Steps:</h4>
+        <ol>
+          <li>Login successfully</li><li>Wait for token expiration (or manually expire)</li><li>Attempt protected action</li>
+        </ol>
+      </div>
+      
+      
+      <div class="expected">
+        <h4>Expected Result</h4>
+        <p>User is redirected to login; Appropriate message shown</p>
+      </div>
+      
+      
+    </div>
+    
+  </div>
+  
+
+  <div class="footer">
+    Generated by Testing Framework | Session: 1769921033736-yhblkgxoy
+  </div>
+</body>
+</html>
