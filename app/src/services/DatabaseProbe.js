@@ -68,14 +68,16 @@ class DatabaseProbe {
 
   /**
    * Attempt to login as a test user
-   * @param {string} targetUrl - Base URL of the application
+   * @param {string} targetUrl - Base URL of the application (or API URL if separate)
    * @param {string} email - User email
    * @param {string} password - User password
    * @param {string} subdomain - Optional subdomain/practice
+   * @param {string} apiUrl - Optional separate API URL for authentication
    * @returns {Promise<Object>} Login result
    */
-  async loginAsTestUser(targetUrl, email, password, subdomain = 'healthbridge') {
-    const baseUrl = targetUrl.replace(/\/$/, '');
+  async loginAsTestUser(targetUrl, email, password, subdomain = null, apiUrl = null) {
+    // Use apiUrl if provided, otherwise fall back to targetUrl
+    const baseUrl = (apiUrl || targetUrl).replace(/\/$/, '');
 
     const loginEndpoints = [
       '/api/auth/login',
@@ -132,11 +134,13 @@ class DatabaseProbe {
    * Probe available test users/roles
    * @param {string} targetUrl - Base URL of the application
    * @param {Array<Object>} testUsers - Array of test user credentials to try
+   * @param {string} apiUrl - Optional separate API URL for authentication
    * @returns {Promise<Object>} Probe results with available users
    */
-  async probeAvailableRoles(targetUrl, testUsers) {
+  async probeAvailableRoles(targetUrl, testUsers, apiUrl = null) {
     const results = {
       targetUrl,
+      apiUrl: apiUrl || targetUrl,
       testedAt: new Date().toISOString(),
       available: [],
       unavailable: [],
@@ -153,7 +157,8 @@ class DatabaseProbe {
         targetUrl,
         user.email,
         user.password,
-        user.subdomain
+        user.subdomain,
+        apiUrl
       );
 
       if (loginResult.success) {
@@ -232,11 +237,14 @@ class DatabaseProbe {
    * Run full database probe
    * @param {string} targetUrl - Base URL of the application
    * @param {Array<Object>} testUsers - Test users to probe
+   * @param {string} apiUrl - Optional separate API URL for authentication
    * @returns {Promise<Object>} Complete probe result
    */
-  async runFullProbe(targetUrl, testUsers) {
+  async runFullProbe(targetUrl, testUsers, apiUrl = null) {
+    const effectiveApiUrl = apiUrl || targetUrl;
     const probe = {
       targetUrl,
+      apiUrl: effectiveApiUrl,
       timestamp: new Date().toISOString(),
       health: null,
       users: null,
@@ -244,9 +252,9 @@ class DatabaseProbe {
       errors: []
     };
 
-    // Health check
+    // Health check - check the API URL for health
     try {
-      probe.health = await this.checkHealth(targetUrl);
+      probe.health = await this.checkHealth(effectiveApiUrl);
     } catch (error) {
       probe.errors.push({ step: 'health', error: error.message });
     }
@@ -267,7 +275,7 @@ class DatabaseProbe {
 
     // Probe users
     try {
-      probe.users = await this.probeAvailableRoles(targetUrl, testUsers);
+      probe.users = await this.probeAvailableRoles(targetUrl, testUsers, apiUrl);
     } catch (error) {
       probe.errors.push({ step: 'users', error: error.message });
     }
@@ -280,15 +288,15 @@ class DatabaseProbe {
 
       if (adminUser?.token) {
         const dataEndpoints = [
-          { name: 'patients', endpoint: '/api/patients' },
-          { name: 'providers', endpoint: '/api/providers' },
-          { name: 'appointments', endpoint: '/api/appointments' }
+          { name: 'projects', endpoint: '/api/projects' },
+          { name: 'tasks', endpoint: '/api/tasks' },
+          { name: 'users', endpoint: '/api/users' }
         ];
 
         for (const { name, endpoint } of dataEndpoints) {
           try {
             probe.testData[name] = await this.verifyTestData(
-              targetUrl,
+              effectiveApiUrl,
               adminUser.token,
               endpoint
             );

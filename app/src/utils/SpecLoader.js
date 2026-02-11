@@ -1,121 +1,190 @@
 /**
- * SpecLoader - Loads and parses feature specs
+ * SpecLoader - Loads and parses feature specs dynamically
  *
- * Fetches spec files from the Playwright service which reads from
- * testing-framework/specs/ (single source of truth)
+ * Now supports:
+ * - App-specific specs via SpecManager
+ * - Dynamic spec detection based on connected GitHub repo
+ * - Fallback to generic specs when no app-specific specs exist
  */
 
 import { parseSpecMarkdown, validateSpec } from './SpecParser';
+import specManager from '../services/SpecManager';
 
 // Cache for loaded specs
 const specCache = new Map();
 
-// Playwright service URL (where specs are served from)
+// Playwright service URL
 const PLAYWRIGHT_SERVICE_URL = 'http://localhost:3002';
 
-// Available specs metadata (from testing-framework/specs/INDEX.md)
-const SPEC_METADATA = [
-  { id: 'auth-login', name: 'Authentication', file: 'auth-login.spec.md' },
-  { id: 'auth-roles', name: 'Role-Based Access', file: 'auth-roles.spec.md' },
-  { id: 'patient-mgmt', name: 'Patient Management', file: 'patient-mgmt.spec.md' },
-  { id: 'provider-mgmt', name: 'Provider Management', file: 'provider-mgmt.spec.md' },
-  { id: 'session-docs', name: 'Session Documentation', file: 'session-docs.spec.md' },
-  { id: 'billing-claims', name: 'Billing & Claims', file: 'billing-claims.spec.md' },
-  { id: 'front-desk-ops', name: 'Front Desk Operations', file: 'front-desk-ops.spec.md' },
-  { id: 'appointments', name: 'Scheduling', file: 'appointments.spec.md' },
-  { id: 'prescriptions', name: 'Prescriptions & RTM', file: 'prescriptions.spec.md' },
-  { id: 'insurance', name: 'Insurance Management', file: 'insurance.spec.md' },
-  { id: 'patient-portal', name: 'Patient Portal', file: 'patient-portal.spec.md' },
-  { id: 'mobile', name: 'Mobile Support', file: 'mobile.spec.md' },
-  { id: 'admin-config', name: 'Admin Configuration', file: 'admin-config.spec.md' },
-  { id: 'intake-forms', name: 'Intake Forms', file: 'intake-forms.spec.md' },
-  { id: 'practice-setup', name: 'Practice Setup', file: 'practice-setup.spec.md' }
-];
+// Current app context (set when GitHub is connected)
+let currentRepo = null;
 
 /**
- * Load a spec by ID - fetches from Playwright service which reads source files
+ * Set the current app context
+ * @param {string} repo - GitHub repo in format "owner/repo"
+ */
+export function setCurrentRepo(repo) {
+  currentRepo = repo;
+  specCache.clear(); // Clear SpecLoader cache when switching apps
+  specManager.refreshCache(); // Reload SpecManager from localStorage to catch any external changes
+}
+
+/**
+ * Get the current app context
+ * @returns {string|null} Current repo
+ */
+export function getCurrentRepo() {
+  return currentRepo;
+}
+
+/**
+ * Load a spec by ID
  * @param {string} specId - The spec ID (e.g., 'auth-login')
  * @returns {Promise<Object>} The spec object with checkpoints
  */
 export async function loadSpec(specId) {
   // Check cache first
-  if (specCache.has(specId)) {
-    return specCache.get(specId);
+  const cacheKey = `${currentRepo || 'default'}_${specId}`;
+  if (specCache.has(cacheKey)) {
+    return specCache.get(cacheKey);
   }
 
-  // Find spec metadata
-  const metadata = SPEC_METADATA.find(s => s.id === specId);
-  if (!metadata) {
-    throw new Error(`Spec not found: ${specId}`);
+  // If we have a current repo, try to load from SpecManager first
+  if (currentRepo) {
+    const appSpec = specManager.getSpec(currentRepo, specId);
+    if (appSpec) {
+      specCache.set(cacheKey, appSpec);
+      return appSpec;
+    }
   }
 
+  // Try to load from Playwright service
   try {
-    // Fetch from Playwright service (reads from testing-framework/specs/)
     const response = await fetch(`${PLAYWRIGHT_SERVICE_URL}/api/specs/${specId}`);
 
-    if (!response.ok) {
-      // If server not running or spec not found, try public folder fallback
-      console.warn(`Playwright service unavailable, trying public folder fallback`);
-      return await loadSpecFromPublic(specId, metadata);
+    if (response.ok) {
+      const markdown = await response.text();
+      const spec = parseSpecMarkdown(markdown);
+
+      const validation = validateSpec(spec);
+      if (!validation.isValid) {
+        console.warn(`Spec ${specId} has validation warnings:`, validation.errors);
+      }
+
+      specCache.set(cacheKey, spec);
+      return spec;
     }
-
-    const markdown = await response.text();
-
-    // Parse the markdown
-    const spec = parseSpecMarkdown(markdown);
-
-    // Validate the parsed spec
-    const validation = validateSpec(spec);
-    if (!validation.isValid) {
-      console.warn(`Spec ${specId} has validation warnings:`, validation.errors);
-    }
-
-    // Cache the result
-    specCache.set(specId, spec);
-
-    return spec;
   } catch (error) {
-    console.error(`Error loading spec ${specId} from service:`, error);
-    // Fall back to public folder, then inline spec
-    try {
-      return await loadSpecFromPublic(specId, metadata);
-    } catch {
-      return getFallbackSpec(specId);
-    }
+    console.warn(`Could not load spec ${specId} from Playwright service:`, error.message);
   }
+
+  // Return fallback spec
+  return getFallbackSpec(specId);
 }
 
 /**
- * Fallback: Load spec from public folder (for when Playwright service is not running)
- */
-async function loadSpecFromPublic(specId, metadata) {
-  const response = await fetch(`/specs/${metadata.file}`);
-  if (!response.ok) {
-    throw new Error(`Failed to load spec file: ${response.status}`);
-  }
-
-  const markdown = await response.text();
-  const spec = parseSpecMarkdown(markdown);
-
-  const validation = validateSpec(spec);
-  if (!validation.isValid) {
-    console.warn(`Spec ${specId} has validation warnings:`, validation.errors);
-  }
-
-  specCache.set(specId, spec);
-  return spec;
-}
-
-/**
- * Get list of all available specs
+ * Get list of all available specs for current app
  * @returns {Array} Array of spec summaries
  */
 export function getAvailableSpecs() {
-  return SPEC_METADATA.map(meta => ({
-    id: meta.id,
-    name: meta.name,
-    file: meta.file
-  }));
+  // If we have a current repo with specs, use those
+  if (currentRepo) {
+    const appSpecs = specManager.getSpecs(currentRepo);
+    if (appSpecs && appSpecs.length > 0) {
+      return appSpecs.map(s => ({
+        id: s.id,
+        name: s.name,
+        file: s.file || `${s.id}.spec.md`
+      }));
+    }
+  }
+
+  // Return empty array if no specs (user needs to generate them)
+  return [];
+}
+
+/**
+ * Check if specs exist for the current repo
+ * @returns {Object} Status object
+ */
+export function checkSpecsStatus() {
+  if (!currentRepo) {
+    return { hasSpecs: false, reason: 'no_repo_connected' };
+  }
+
+  const status = specManager.hasSpecs(currentRepo);
+  return {
+    hasSpecs: status.exists,
+    specCount: status.specCount,
+    lastUpdated: status.lastUpdated,
+    reason: status.exists ? 'specs_found' : 'no_specs_for_repo'
+  };
+}
+
+/**
+ * Generate specs for the current repo
+ * @param {Object} repoAnalyzer - GitHubRepoAnalyzer instance
+ * @param {string} appType - Type of app
+ * @returns {Promise<Object>} Generated specs info
+ */
+export async function generateSpecsForRepo(repoAnalyzer, appType = 'project-management') {
+  if (!currentRepo) {
+    throw new Error('No repository connected');
+  }
+
+  const generated = await specManager.generateSpecs(repoAnalyzer, appType);
+
+  // Get the latest commit SHA for versioning
+  let lastCommitSha = null;
+  try {
+    const commits = await repoAnalyzer.getRecentCommits(null, 1);
+    if (commits && commits.length > 0) {
+      lastCommitSha = commits[0].sha;
+    }
+  } catch (error) {
+    console.warn('Could not get latest commit SHA:', error.message);
+  }
+
+  // Save the generated specs
+  specManager.saveSpecs(currentRepo, generated.specs, generated.fullSpecs, lastCommitSha);
+
+  // Clear cache to load new specs
+  specCache.clear();
+
+  return {
+    specCount: generated.specs.length,
+    specs: generated.specs,
+    lastCommitSha
+  };
+}
+
+/**
+ * Check if specs need updating based on recent code changes
+ * @param {Array} recentCommits - Recent commits from GitHub
+ * @returns {Object} Update status
+ */
+export function checkForSpecUpdates(recentCommits) {
+  if (!currentRepo) {
+    return { needsUpdate: false, reason: 'no_repo' };
+  }
+
+  return specManager.checkForUpdates(currentRepo, recentCommits);
+}
+
+/**
+ * Update specs with new information
+ * @param {Object} repoAnalyzer - GitHubRepoAnalyzer instance
+ * @param {Object} updateInfo - Information about what to update
+ * @returns {Promise<Object>} Update result
+ */
+export async function updateSpecs(repoAnalyzer, updateInfo) {
+  if (!currentRepo) {
+    throw new Error('No repository connected');
+  }
+
+  // For now, regenerate all specs
+  // In the future, this could do incremental updates based on changed files
+  return generateSpecsForRepo(repoAnalyzer, updateInfo.appType || 'project-management');
 }
 
 /**
@@ -129,107 +198,23 @@ export function clearSpecCache() {
  * Preload all specs into cache
  */
 export async function preloadAllSpecs() {
+  const specs = getAvailableSpecs();
+
   const results = await Promise.allSettled(
-    SPEC_METADATA.map(meta => loadSpec(meta.id))
+    specs.map(meta => loadSpec(meta.id))
   );
 
   const loaded = results.filter(r => r.status === 'fulfilled').length;
   const failed = results.filter(r => r.status === 'rejected').length;
 
-  return { loaded, failed, total: SPEC_METADATA.length };
+  return { loaded, failed, total: specs.length };
 }
 
 /**
- * Fallback specs for when file loading fails
+ * Fallback specs for when nothing else is available
  */
 function getFallbackSpec(specId) {
-  const FALLBACK_SPECS = {
-    'auth-login': {
-      id: 'auth-login',
-      name: 'Authentication - Login',
-      version: '1.0',
-      checkpoints: [
-        {
-          id: 'CP-001',
-          action: 'Login Page Display',
-          description: 'Login page renders correctly with all required elements',
-          steps: ['Navigate to application root (/)', 'Verify login form is visible'],
-          expectedResult: 'Email input field visible; Password input field visible; Submit button visible',
-          expectedItems: ['Email input field visible', 'Password input field visible', 'Submit button visible']
-        },
-        {
-          id: 'CP-002',
-          action: 'Valid Admin Login',
-          description: 'Admin user can login with valid credentials',
-          steps: ['Enter valid admin email', 'Enter valid admin password', 'Click submit button'],
-          expectedResult: 'User is redirected to admin dashboard; Auth token is stored',
-          expectedItems: ['User is redirected to admin dashboard', 'Auth token is stored in localStorage']
-        },
-        {
-          id: 'CP-003',
-          action: 'Valid Provider Login',
-          description: 'Provider user can login and access provider dashboard',
-          steps: ['Enter valid provider email', 'Enter valid provider password', 'Click submit button'],
-          expectedResult: 'User is redirected to provider dashboard; Provider-specific features are accessible',
-          expectedItems: ['User is redirected to provider dashboard', 'Provider-specific features are accessible']
-        },
-        {
-          id: 'CP-004',
-          action: 'Valid Front Desk Login',
-          description: 'Front desk user can login and access front desk dashboard',
-          steps: ['Enter valid front desk email', 'Enter valid front desk password', 'Click submit button'],
-          expectedResult: 'User is redirected to front desk dashboard',
-          expectedItems: ['User is redirected to front desk dashboard', 'Front desk features are accessible']
-        },
-        {
-          id: 'CP-005',
-          action: 'Invalid Credentials',
-          description: 'Login fails with invalid credentials',
-          steps: ['Enter invalid email or password', 'Click submit button'],
-          expectedResult: 'Error message is displayed; User remains on login page',
-          expectedItems: ['Error message is displayed', 'User remains on login page', 'No auth token is stored']
-        },
-        {
-          id: 'CP-006',
-          action: 'Empty Fields Validation',
-          description: 'Login form validates required fields',
-          steps: ['Leave email and/or password empty', 'Click submit button'],
-          expectedResult: 'Form validation prevents submission; Validation error message shown',
-          expectedItems: ['Form validation prevents submission', 'Validation error message shown']
-        },
-        {
-          id: 'CP-007',
-          action: 'Session Persistence',
-          description: 'User session persists across page refreshes',
-          steps: ['Login successfully', 'Refresh the page'],
-          expectedResult: 'User remains logged in; Dashboard is displayed',
-          expectedItems: ['User remains logged in', 'Dashboard is displayed', 'Auth token is still valid']
-        },
-        {
-          id: 'CP-008',
-          action: 'Logout',
-          description: 'User can logout and session is cleared',
-          steps: ['Login successfully', 'Click logout button'],
-          expectedResult: 'User is redirected to login page; Auth token is removed',
-          expectedItems: ['User is redirected to login page', 'Auth token is removed', 'User context is cleared']
-        },
-        {
-          id: 'CP-009',
-          action: 'Session Timeout',
-          description: 'Expired sessions are handled gracefully',
-          steps: ['Login successfully', 'Wait for token expiration', 'Attempt protected action'],
-          expectedResult: 'User is redirected to login; Appropriate message shown',
-          expectedItems: ['User is redirected to login', 'Appropriate message shown']
-        }
-      ]
-    }
-  };
-
-  if (FALLBACK_SPECS[specId]) {
-    return FALLBACK_SPECS[specId];
-  }
-
-  // Generic fallback
+  // Generic fallback structure
   return {
     id: specId,
     name: specId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
@@ -247,4 +232,15 @@ function getFallbackSpec(specId) {
   };
 }
 
-export default { loadSpec, getAvailableSpecs, clearSpecCache, preloadAllSpecs };
+export default {
+  loadSpec,
+  getAvailableSpecs,
+  clearSpecCache,
+  preloadAllSpecs,
+  setCurrentRepo,
+  getCurrentRepo,
+  checkSpecsStatus,
+  generateSpecsForRepo,
+  checkForSpecUpdates,
+  updateSpecs
+};

@@ -1,12 +1,15 @@
-# Testing Framework (TF)
+# QA Testing Framework (TF)
 
-A standalone interactive testing application for validating web applications with Playwright automation and GitHub issue integration.
+A standalone interactive testing application for validating web applications with Playwright automation and GitHub issue integration. Supports **any application** with dynamic spec generation.
 
 ## Features
 
+- **Dynamic Spec Generation** - Auto-generate test specs based on your app type
+- **App-Specific Specs** - Each GitHub repo gets its own spec set
 - **Interactive Testing UI** - Walk through checkpoints with YES/NO approval
 - **Playwright Automation** - Automated browser testing with step-by-step screenshots
 - **GitHub Integration** - Auto-create issues for blockers and enhancements
+- **Change Detection** - Detects code changes and prompts to update specs
 - **Screenshot Gallery** - View all automation steps with navigation
 - **Session Persistence** - Pause and resume testing sessions
 - **Documentation Export** - Generate training docs from passed checkpoints
@@ -14,7 +17,7 @@ A standalone interactive testing application for validating web applications wit
 ## Architecture
 
 ```
-testing-framework/
+qa-testing-framework/
 ├── app/                      # TF React application (port 3001)
 │   ├── src/
 │   │   ├── pages/
@@ -23,15 +26,15 @@ testing-framework/
 │   │   │   ├── AnalyticsPage.jsx  # Test insights dashboard
 │   │   │   └── DemoPage.jsx       # Stakeholder demo mode
 │   │   ├── services/
-│   │   │   └── PlaywrightClient.js # Playwright service client
+│   │   │   ├── PlaywrightClient.js # Playwright service client
+│   │   │   └── SpecManager.js      # App-specific spec management
 │   │   ├── integrations/
 │   │   │   └── GitHubIntegration.js # GitHub issue creation
 │   │   └── App.jsx
 │   ├── server/
 │   │   └── playwright-service.js  # Playwright HTTP API (port 3002)
 │   └── public/
-│       └── specs/                 # Test specification files
-├── specs/                    # Source spec files (.spec.md)
+├── specs/                    # Spec documentation
 └── src/                      # Core TF library
 ```
 
@@ -39,61 +42,81 @@ testing-framework/
 
 ### Start All Services
 
-Double-click the desktop shortcut or run:
+Double-click `Start-TF.bat` or run:
 ```bash
-cd testing-framework
-Start-TF.bat
+cd qa-testing-framework
+./Start-TF.bat
 ```
 
 This starts:
-- **TF App**: http://localhost:3001
+- **TF Portal**: http://localhost:3001
 - **Playwright Service**: http://localhost:3002
-- **Target App**: http://localhost:3000 (behavioral health app)
 
 ### Manual Start
 
-1. Start the target application:
+1. Start the TF app:
    ```bash
-   cd behavioral-health-app
+   cd qa-testing-framework/app
    npm start
    ```
 
-2. Start the TF app:
+2. Start the Playwright service:
    ```bash
-   cd testing-framework/app
-   npm start
-   ```
-
-3. Start the Playwright service:
-   ```bash
-   cd testing-framework/app/server
+   cd qa-testing-framework/app/server
    node playwright-service.js
    ```
 
 ## Usage
 
+### First Time Setup
+
 1. Open http://localhost:3001
-2. Enter target URL (e.g., http://localhost:3000)
-3. Select a test spec (e.g., auth-login)
-4. Optionally configure GitHub token for issue creation
-5. Click "Start Testing"
-6. For each checkpoint:
+2. **Connect GitHub** - Enter your GitHub token and repository (owner/repo)
+3. **Generate Specs** - Click "Generate Specs" to create test specifications for your app
+4. Specs are saved and will be available for future sessions
+
+### Testing Workflow
+
+1. Enter your target application URL (e.g., http://localhost:3000)
+2. Select a test spec from the generated list
+3. Click "Start Testing"
+4. For each checkpoint:
    - Click **RUN** to execute Playwright automation
    - Review the screenshots (use ◀ ▶ to navigate steps)
    - Click **YES - Approved** or **NO - Issue Found**
-7. If reporting an issue:
+5. If reporting an issue:
    - Fill in the feedback form
    - Select priority (Blocker or Nice-to-have)
    - Submit to create GitHub issue with screenshots
 
-## Test Credentials
+### Updating Specs
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@test.com | TestPass123! |
-| Provider | provider@test.com | TestPass123! |
-| Front Desk | frontdesk@test.com | TestPass123! |
-| Billing | billing@test.com | TestPass123! |
+When code changes are detected in your repository:
+1. The framework will show an "Update Specs" notification
+2. Click to regenerate specs with the latest changes
+3. Specs track the last commit SHA to detect changes
+
+## Supported App Types
+
+The framework generates specs based on your application type:
+
+### Project Management Apps
+| Spec | Feature | Checkpoints |
+|------|---------|-------------|
+| auth-login | Authentication | 4 |
+| projects | Project Management | 5 |
+| tasks | Task Management | 6 |
+| team | Team Management | 4 |
+| dashboard | Dashboard | 4 |
+| search | Search & Filter | 3 |
+| notifications | Notifications | 3 |
+| settings | User Settings | 4 |
+
+**Total: 8 specs, 33 checkpoints**
+
+### Adding Custom App Types
+
+Edit `app/src/services/SpecManager.js` to add templates for new app types.
 
 ## GitHub Integration
 
@@ -109,19 +132,6 @@ Issues are created with appropriate labels:
 
 Screenshots from all automation steps are attached as expandable comments.
 
-## Available Specs
-
-| Spec ID | Feature | Checkpoints |
-|---------|---------|-------------|
-| auth-login | Authentication | 9 |
-| auth-roles | Role-Based Access | 11 |
-| patient-mgmt | Patient Management | 10 |
-| provider-mgmt | Provider Management | 10 |
-| appointments | Scheduling | 11 |
-| front-desk-ops | Front Desk Operations | 10 |
-| billing-claims | Billing & Claims | 12 |
-| And more... | | |
-
 ## Playwright Service API
 
 - `GET /status` - Check service status
@@ -134,7 +144,7 @@ Screenshots from all automation steps are attached as expandable comments.
 
 ### Adding New Automation Steps
 
-Edit `testing-framework/app/server/playwright-service.js` to add new steps:
+Edit `app/server/playwright-service.js` to add new steps:
 
 ```javascript
 'my-new-step': async () => {
@@ -143,12 +153,54 @@ Edit `testing-framework/app/server/playwright-service.js` to add new steps:
 },
 ```
 
-Then map checkpoints to steps in `testing-framework/app/src/services/PlaywrightClient.js`:
+Then map checkpoints to steps in `app/src/services/PlaywrightClient.js`:
 
 ```javascript
 'CP-NEW': [{ stepId: 'goto-login' }, { stepId: 'my-new-step' }],
 ```
 
-### Adding New Specs
+### Adding New App Type Templates
 
-Create a new `.spec.md` file in `testing-framework/specs/` following the existing format, then copy to `testing-framework/app/public/specs/`.
+Edit `app/src/services/SpecManager.js` and add a new method:
+
+```javascript
+getMyAppTypeSpecs(analysis) {
+  return [
+    {
+      id: 'feature-id',
+      name: 'Feature Name',
+      file: 'feature.spec.md',
+      version: '1.0',
+      checkpoints: [
+        {
+          id: 'feature-1',
+          action: 'Action Name',
+          description: 'What this tests',
+          steps: ['Step 1', 'Step 2'],
+          expectedResult: 'Expected outcome',
+          expectedItems: ['Item 1', 'Item 2']
+        }
+      ]
+    }
+  ];
+}
+```
+
+Then register it in `getSpecsTemplate()`.
+
+## Spec Storage
+
+Specs are stored in browser `localStorage`:
+- Key: `tf_app_specs`
+- Organized by repository (e.g., `owner-repo`)
+- Includes last update timestamp and commit SHA
+
+To export/backup specs:
+1. Open browser DevTools (F12)
+2. Go to Application > Local Storage
+3. Find `tf_app_specs` key
+4. Copy the JSON value
+
+## Stopping Services
+
+Run `Stop-TF.bat` to stop all running services.

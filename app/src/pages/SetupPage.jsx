@@ -16,6 +16,8 @@ const SetupPage = () => {
   const [searchParams] = useSearchParams();
   const { config, updateConfig, initGitHub, disconnectGitHub, repoAnalyzer, analyzeRepository } = useTFContext();
   const [targetUrl, setTargetUrl] = useState(config.targetUrl || 'http://localhost:3000');
+  const [apiUrl, setApiUrl] = useState(config.apiUrl || '');
+  const [showApiUrl, setShowApiUrl] = useState(!!config.apiUrl);
   const [selectedSpec, setSelectedSpec] = useState(config.selectedSpec);
   const [error, setError] = useState('');
 
@@ -112,9 +114,16 @@ const SetupPage = () => {
     setError('');
 
     try {
+      // Merge user-provided apiUrl into testCredentials config
+      const credentialsWithApiUrl = {
+        ...testCredentialsConfig,
+        // Override with user-provided API URL if specified
+        userApiUrl: apiUrl.trim() || null
+      };
+
       const validator = new PreTestValidator({
         repoAnalyzer: repoAnalyzer,
-        testCredentials: testCredentialsConfig,
+        testCredentials: credentialsWithApiUrl,
         checkpointMappings: checkpointMappingsConfig
       });
 
@@ -134,7 +143,7 @@ const SetupPage = () => {
     } finally {
       setIsValidating(false);
     }
-  }, [targetUrl, selectedSpec, repoAnalyzer]);
+  }, [targetUrl, apiUrl, selectedSpec, repoAnalyzer]);
 
   // Handle validation continue (with optional workaround credentials)
   const handleValidationContinue = useCallback((workaround = null) => {
@@ -143,6 +152,7 @@ const SetupPage = () => {
     // Update context and navigate
     updateConfig({
       targetUrl: targetUrl.trim(),
+      apiUrl: apiUrl.trim() || null, // Include API URL if provided
       selectedSpec,
       currentCheckpointIndex: 0,
       feedback: [],
@@ -154,7 +164,7 @@ const SetupPage = () => {
     });
 
     navigate('/testing');
-  }, [targetUrl, selectedSpec, validationResults, updateConfig, navigate]);
+  }, [targetUrl, apiUrl, selectedSpec, validationResults, updateConfig, navigate]);
 
   // Handle validation cancel
   const handleValidationCancel = () => {
@@ -346,7 +356,7 @@ ${complianceReport?.workaround?.description || 'Testing proceeded with super-adm
         )}
 
         <div style={styles.section}>
-          <label style={styles.label}>Target Application URL</label>
+          <label style={styles.label}>Target Application URL (Frontend)</label>
           <input
             type="url"
             value={targetUrl}
@@ -360,6 +370,40 @@ ${complianceReport?.workaround?.description || 'Testing proceeded with super-adm
           <p style={styles.hint}>
             Enter the URL of the application you want to test
           </p>
+
+          {/* Optional API URL toggle */}
+          {!showApiUrl ? (
+            <button
+              type="button"
+              onClick={() => setShowApiUrl(true)}
+              style={styles.advancedToggle}
+            >
+              + API on different domain?
+            </button>
+          ) : (
+            <div style={styles.apiUrlSection}>
+              <div style={styles.apiUrlHeader}>
+                <label style={styles.label}>API URL (Optional)</label>
+                <button
+                  type="button"
+                  onClick={() => { setShowApiUrl(false); setApiUrl(''); }}
+                  style={styles.removeApiUrl}
+                >
+                  Remove
+                </button>
+              </div>
+              <input
+                type="url"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="https://api.example.com"
+                style={styles.input}
+              />
+              <p style={styles.hint}>
+                Only needed if your API backend is on a different domain than the frontend
+              </p>
+            </div>
+          )}
         </div>
 
         <div style={styles.section}>
@@ -765,6 +809,36 @@ const styles = {
     marginTop: '8px',
     fontSize: '12px',
     color: '#6b7280'
+  },
+  advancedToggle: {
+    marginTop: '12px',
+    padding: '0',
+    background: 'none',
+    border: 'none',
+    color: '#2563eb',
+    fontSize: '13px',
+    cursor: 'pointer',
+    textDecoration: 'none'
+  },
+  apiUrlSection: {
+    marginTop: '16px',
+    paddingTop: '16px',
+    borderTop: '1px dashed #d1d5db'
+  },
+  apiUrlHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px'
+  },
+  removeApiUrl: {
+    padding: '4px 8px',
+    background: 'none',
+    border: 'none',
+    color: '#6b7280',
+    fontSize: '12px',
+    cursor: 'pointer',
+    textDecoration: 'underline'
   },
   startButton: {
     width: '100%',

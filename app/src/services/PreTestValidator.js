@@ -108,9 +108,25 @@ class PreTestValidator {
       errors: []
     };
 
+    // Get API URL - prioritize user-provided apiUrl over config
+    let apiUrl = this.testCredentials?.userApiUrl || null;
+
+    // If no user-provided apiUrl, try to get from environments config
+    if (!apiUrl && this.testCredentials?.environments) {
+      for (const [envName, envConfig] of Object.entries(this.testCredentials.environments)) {
+        if (envConfig.baseUrl === targetUrl || targetUrl.includes(envConfig.baseUrl?.replace(/^https?:\/\//, ''))) {
+          apiUrl = envConfig.apiUrl;
+          break;
+        }
+      }
+      if (!apiUrl && !targetUrl.includes('localhost')) {
+        apiUrl = this.testCredentials.environments.production?.apiUrl;
+      }
+    }
+
     // Just check health and one credential
     try {
-      const health = await this.databaseProbe.checkHealth(targetUrl);
+      const health = await this.databaseProbe.checkHealth(apiUrl || targetUrl);
       if (!health.healthy) {
         results.passed = false;
         results.errors.push({
@@ -189,7 +205,9 @@ class PreTestValidator {
       message: null,
       available: [],
       unavailable: [],
-      details: null
+      details: null,
+      authType: null,
+      securityFindings: []
     };
 
     if (!this.testCredentials?.users) {
@@ -205,18 +223,84 @@ class PreTestValidator {
         subdomain: this.testCredentials.defaultSubdomain
       }));
 
-      const probeResult = await this.databaseProbe.probeAvailableRoles(targetUrl, testUsers);
+      // Get API URL - prioritize user-provided apiUrl over config
+      let apiUrl = this.testCredentials.userApiUrl || null;
+
+      // If no user-provided apiUrl, try to get from environments config
+      if (!apiUrl && this.testCredentials.environments) {
+        // First try to find matching environment by baseUrl
+        for (const [envName, envConfig] of Object.entries(this.testCredentials.environments)) {
+          if (envConfig.baseUrl === targetUrl || targetUrl.includes(envConfig.baseUrl?.replace(/^https?:\/\//, ''))) {
+            apiUrl = envConfig.apiUrl;
+            break;
+          }
+        }
+        // If no match found and production has apiUrl, use it as fallback for non-localhost
+        if (!apiUrl && !targetUrl.includes('localhost')) {
+          apiUrl = this.testCredentials.environments.production?.apiUrl;
+        }
+      }
+
+      const probeResult = await this.databaseProbe.probeAvailableRoles(targetUrl, testUsers, apiUrl);
       result.details = probeResult;
       result.available = probeResult.available;
       result.unavailable = probeResult.unavailable;
 
       if (probeResult.summary.working === 0) {
-        result.valid = false;
-        result.message = 'No test users could authenticate';
+        // No login endpoints found - likely OAuth-only app
+        const noEndpointFound = probeResult.unavailable?.every(u =>
+          u.error === 'Could not find login endpoint'
+        );
+
+        if (noEndpointFound) {
+          result.valid = true; // Not a failure - just a different auth type
+          result.authType = 'oauth';
+          result.message = 'OAuth/SSO authentication detected';
+          result.securityFindings.push({
+            type: 'THIRD_PARTY_AUTH',
+            severity: 'info',
+            title: 'Third-Party Authentication Provider',
+            description: 'Application uses OAuth/SSO for authentication. Security is delegated to the identity provider.',
+            requiresAcceptance: true,
+            acceptanceRequired: ['Product Owner', 'Security Officer'],
+            preCutoverItem: true
+          });
+        } else {
+          result.valid = false;
+          result.authType = 'password';
+          result.message = 'No test users could authenticate';
+          result.securityFindings.push({
+            type: 'CREDENTIAL_FAILURE',
+            severity: 'warning',
+            title: 'Test Credential Validation Failed',
+            description: 'Could not validate test user credentials. Verify credentials are correct and login endpoint is accessible.',
+            requiresAcceptance: true,
+            acceptanceRequired: ['Product Owner'],
+            preCutoverItem: true
+          });
+        }
       } else if (probeResult.summary.failed > 0) {
+        result.authType = 'password';
         result.message = `${probeResult.summary.working}/${probeResult.summary.total} test users available`;
       } else {
+        result.authType = 'password';
         result.message = 'All test users authenticated successfully';
+
+        // Check for role-based security constraints
+        const roles = result.available.map(u => u.role);
+        const hasMultipleRoles = new Set(roles).size > 1;
+
+        if (hasMultipleRoles) {
+          result.securityFindings.push({
+            type: 'ROLE_BASED_ACCESS',
+            severity: 'info',
+            title: 'Role-Based Access Control Detected',
+            description: `Application implements role-based security with roles: ${[...new Set(roles)].join(', ')}. Functional constraints should be verified per role.`,
+            requiresAcceptance: true,
+            acceptanceRequired: ['Product Owner', 'Security Officer'],
+            preCutoverItem: true
+          });
+        }
       }
     } catch (error) {
       result.valid = false;

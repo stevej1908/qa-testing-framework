@@ -10,13 +10,6 @@ echo ║  Stopping all services...                                   ║
 echo ╚════════════════════════════════════════════════════════════╝
 echo.
 
-:: Kill process on port 3000 (React app)
-echo Stopping Behavioral Health App (port 3000)...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do (
-    taskkill /PID %%a /F >nul 2>&1
-    if not errorlevel 1 echo   - Stopped PID %%a
-)
-
 :: Kill process on port 3001 (TF Portal)
 echo Stopping TF Portal (port 3001)...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3001 ^| findstr LISTENING') do (
@@ -27,13 +20,6 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3001 ^| findstr LISTENING') 
 :: Kill process on port 3002 (Playwright Service)
 echo Stopping Playwright Service (port 3002)...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3002 ^| findstr LISTENING') do (
-    taskkill /PID %%a /F >nul 2>&1
-    if not errorlevel 1 echo   - Stopped PID %%a
-)
-
-:: Kill process on port 5000 (API Server)
-echo Stopping API Server (port 5000)...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
     taskkill /PID %%a /F >nul 2>&1
     if not errorlevel 1 echo   - Stopped PID %%a
 )

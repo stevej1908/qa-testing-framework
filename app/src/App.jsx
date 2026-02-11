@@ -6,6 +6,7 @@ import DemoPage from './pages/DemoPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import { GitHubIntegration } from './integrations/GitHubIntegration';
 import GitHubRepoAnalyzer from './services/GitHubRepoAnalyzer';
+import { setCurrentRepo } from './utils/SpecLoader';
 
 // Global state context for TF
 const TFContext = createContext(null);
@@ -70,6 +71,9 @@ function App() {
       // Create repo analyzer instance
       const analyzer = new GitHubRepoAnalyzer(client);
       setRepoAnalyzer(analyzer);
+
+      // Set the current repo for spec loading
+      setCurrentRepo(repo);
 
       setConfig(prev => ({
         ...prev,
@@ -183,6 +187,7 @@ function App() {
     localStorage.removeItem('tf_github_repo');
     setGithubClient(null);
     setRepoAnalyzer(null);
+    setCurrentRepo(null); // Clear current repo for spec loading
     setConfig(prev => ({
       ...prev,
       github: {

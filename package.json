@@ -1,5 +1,5 @@
 {
-  "name": "@behavioral-health/interactive-testing-framework",
+  "name": "qa-testing-framework",
   "version": "1.0.0",
   "description": "Interactive testing framework for bridging the understanding gap between AI and user during development",
   "main": "src/index.js",

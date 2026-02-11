@@ -1,5 +1,5 @@
 {
-  "name": "@behavioral-health/tf-app",
+  "name": "qa-testing-framework-app",
   "version": "1.0.0",
   "description": "Standalone Interactive Testing Framework Application",
   "private": true,
